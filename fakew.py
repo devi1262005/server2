@@ -1,4 +1,4 @@
-from flask import Flask, jsonify
+from flask import Flask, jsonify, request
 import random
 import hashlib
 from datetime import datetime, timedelta
@@ -8,11 +8,12 @@ app = Flask(__name__)
 first_names = ["Amit", "Priya", "Rahul", "Sneha", "Vikram", "Ananya", "Arjun", "Deepika", "Kunal", "Pooja"]
 last_names = ["Sharma", "Verma", "Patel", "Nair", "Reddy", "Singh", "Gupta", "Das", "Iyer", "Chopra"]
 ott_platforms = ["Netflix", "Amazon Prime", "Disney+", "Hotstar", "Hulu", "Apple TV+"]
+banks = ["HDFC", "SBI", "ICICI", "Axis"]
+emi_items = ["Car Loan", "Phone EMI", "Laptop EMI", "Home Loan", "Furniture EMI"]
 
-random.seed(42)  # Fixed random seed
+random.seed(42)  # Fixed seed for reproducibility
 
 users = []
-fixed_randoms = []  # Store fixed random data
 
 for i in range(100):
     random.seed(i)  # Ensure reproducibility for each user
@@ -29,9 +30,10 @@ for i in range(100):
         "balance": random.randint(0, 50000),
     }
 
+    # Transactions
     transactions = []
     total_spent = 0
-    for _ in range(random.randint(5, 15)):
+    for _ in range(20):
         date = datetime.now() - timedelta(days=random.randint(1, 365))
         amount = random.randint(500, 5000)
         sent = random.choice(["sent", "received"])
@@ -39,22 +41,24 @@ for i in range(100):
             total_spent += amount
         transactions.append({"date": date.strftime('%Y-%m-%d'), "amount": amount, "transaction_type": sent})
 
+    # Loans
     loans = []
     missed_payments = 0
-    for _ in range(random.randint(1, 5)):
+    for _ in range(20):
         due_date = datetime.now() + timedelta(days=random.randint(-30, 365))
         repaid = random.choice([True, False])
         if not repaid:
             missed_payments += 1
         loans.append({
-            "bank": random.choice(["HDFC", "SBI", "ICICI", "Axis"]),
+            "bank": random.choice(banks),
             "amount": random.randint(50000, 500000),
             "due_date": due_date.strftime('%Y-%m-%d'),
             "repaid": repaid
         })
 
+    # Mortgages
     mortgages = []
-    for _ in range(random.randint(0, 3)):
+    for _ in range(20):
         due_date = datetime.now() + timedelta(days=random.randint(-30, 365))
         repaid = random.choice([True, False])
         if not repaid:
@@ -65,8 +69,9 @@ for i in range(100):
             "repaid": repaid
         })
 
+    # Bills
     bills = []
-    for _ in range(random.randint(2, 5)):
+    for _ in range(20):
         bills.append({
             "provider": random.choice(["Electricity", "Water", "Internet", random.choice(ott_platforms)]),
             "amount": random.randint(100, 999),
@@ -74,11 +79,23 @@ for i in range(100):
             "paid": random.choice([True, False])
         })
 
-    late_payment_risk = min(10, missed_payments)  
+    # EMIs
+    emis = []
+    for _ in range(20):
+        emis.append({
+            "item": random.choice(emi_items),
+            "amount": random.randint(500, 5000),
+            "due_date": (datetime.now() + timedelta(days=random.randint(-30, 30))).strftime('%Y-%m-%d'),
+            "paid": random.choice([True, False])
+        })
+
+    # Calculations
+    late_payment_risk = min(10, missed_payments)
     app_score = 700 - (100 if late_payment_risk > 5 else 0) - (missed_payments * 10)
-    target_saving = 50000
+    target_saving = random.randint(5000, 10000)
     profit = target_saving - total_spent
 
+    # User Data
     user_data = {
         "name": full_name,
         "email": email,
@@ -89,6 +106,7 @@ for i in range(100):
         "loans": loans,
         "mortgages": mortgages,
         "bills": bills,
+        "emis": emis,
         "late_payment_risk": late_payment_risk,
         "app_score": max(300, app_score),
         "target_saving": target_saving,
@@ -96,19 +114,43 @@ for i in range(100):
     }
     
     users.append(user_data)
-    fixed_randoms.append(user_data)  # Store fixed data
-
-@app.route('/users', methods=['GET'])
-def get_users():
-    return jsonify(users)
 
 @app.route('/summary', methods=['GET'])
 def get_summary():
-    total_spent = sum(user["target_saving"] - user["profit"] for user in users)
+    credit_card_number = request.args.get("credit_card")
+
+    if not credit_card_number:
+        return jsonify({"error": "Credit card number is required"}), 400
+
+    user = next((u for u in users if u["credit_card"]["number"] == credit_card_number), None)
+    
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+
+    mortgages_due = [m["amount"] for m in user["mortgages"] if not m["repaid"]]
+    bills_due = [b["amount"] for b in user["bills"] if not b["paid"]]
+    emis_due = [e["amount"] for e in user["emis"] if not e["paid"]]
+
+    total_due = sum(mortgages_due) + sum(bills_due) + sum(emis_due)
+    balance = user["credit_card"]["balance"]
+    
+    # Debt ratio (how much is owed vs. available)
+    debt_ratio = total_due / (balance + 1)  # +1 to avoid division by zero
+
+    # Financial Health Calculation
+    financial_health = max(0, min(100, (user["app_score"] / 7) - (user["late_payment_risk"] * 5) - (debt_ratio * 30) + (user["profit"] / 1000) * 5))
+
     return jsonify({
-        "total_amount_spent": total_spent,
-        "target_saving": 50000,
-        "profit": 50000 - total_spent
+        "credit_card": credit_card_number,
+        "total_mortgages_due": sum(mortgages_due),
+        "count_mortgages_due": len(mortgages_due),
+        "total_bills_due": sum(bills_due),
+        "count_bills_due": len(bills_due),
+        "total_emis_due": sum(emis_due),
+        "count_emis_due": len(emis_due),
+        "app_score": user["app_score"],
+        "late_payment_risk": user["late_payment_risk"],
+        "financial_health_percentage": round(financial_health, 2)
     })
 
 if __name__ == '__main__':
