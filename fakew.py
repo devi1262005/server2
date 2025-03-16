@@ -126,7 +126,7 @@ def get_summary():
     if not card_number:
         return jsonify({"error": "Card number is required"}), 400
 
-    user = next((u for u in users if u["card"]["number"] == card_number), None)
+    user = next((u for u in users if u["credit_card"]["number"] == card_number), None)
 
     if not user:
         return jsonify({"error": "User not found"}), 404
@@ -137,8 +137,7 @@ def get_summary():
 
     return jsonify({
         "card_number": card_number,
-        "card_type": user["card"]["type"],
-        "bank": user["card"]["bank"],
+        "card_type": user["credit_card"]["type"],
         "total_mortgages_due": sum(mortgages_due),
         "count_mortgages_due": len(mortgages_due),
         "total_bills_due": sum(bills_due),
@@ -147,9 +146,8 @@ def get_summary():
         "count_emis_due": len(emis_due),
         "app_score": user["app_score"],
         "late_payment_risk": user["late_payment_risk"],
-        "financial_health_percentage": round(user["financial_health"], 2)
+        "financial_health_percentage": round(user["app_score"] / 10, 2)  # Example Fix
     })
-
 
 if __name__ == '__main__':
     app.run(debug=True)
