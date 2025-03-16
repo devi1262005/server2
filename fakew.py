@@ -11,7 +11,6 @@ ott_platforms = ["Netflix", "Amazon Prime", "Disney+", "Hotstar", "Hulu", "Apple
 banks = ["HDFC", "SBI", "ICICI", "Axis"]
 emi_items = ["Car Loan", "Phone EMI", "Laptop EMI", "Home Loan", "Furniture EMI"]
 
-random.seed(42)  # Fixed seed for reproducibility
 
 users = []
 
