@@ -11,13 +11,9 @@ ott_platforms = ["Netflix", "Amazon Prime", "Disney+", "Hotstar", "Hulu", "Apple
 banks = ["HDFC", "SBI", "ICICI", "Axis"]
 emi_items = ["Car Loan", "Phone EMI", "Laptop EMI", "Home Loan", "Furniture EMI"]
 
-random.seed(42)  # Fixed seed for reproducibility
-
 users = []
 
 for i in range(100):
-    random.seed(i)  # Ensure reproducibility for each user
-
     full_name = f"{random.choice(first_names)} {random.choice(last_names)}"
     email = f"{full_name.replace(' ', '').lower()}@example.com"
     phone = f"98{random.randint(10000000, 99999999)}"
@@ -30,73 +26,56 @@ for i in range(100):
         "balance": random.randint(0, 50000),
     }
 
-    # Transactions
-    transactions = []
-    total_spent = 0
+    transactions, total_spent = [], 0
     for _ in range(20):
-        date = datetime.now() - timedelta(days=random.randint(1, 365))
         amount = random.randint(500, 5000)
         sent = random.choice(["sent", "received"])
         if sent == "sent":
             total_spent += amount
-        transactions.append({"date": date.strftime('%Y-%m-%d'), "amount": amount, "transaction_type": sent})
+        transactions.append({"amount": amount, "transaction_type": sent})
 
-    # Loans
-    loans = []
-    missed_payments = 0
+    loans, mortgages, bills, emis, missed_payments, total_obligations = [], [], [], [], 0, 0
+    
     for _ in range(20):
-        due_date = datetime.now() + timedelta(days=random.randint(-30, 365))
         repaid = random.choice([True, False])
+        amount = random.randint(50000, 500000)
+        total_obligations += amount
         if not repaid:
             missed_payments += 1
-        loans.append({
-            "bank": random.choice(banks),
-            "amount": random.randint(50000, 500000),
-            "due_date": due_date.strftime('%Y-%m-%d'),
-            "repaid": repaid
-        })
-
-    # Mortgages
-    mortgages = []
+        loans.append({"bank": random.choice(banks), "amount": amount, "repaid": repaid})
+        
     for _ in range(20):
-        due_date = datetime.now() + timedelta(days=random.randint(-30, 365))
         repaid = random.choice([True, False])
+        amount = random.randint(100000, 1000000)
+        total_obligations += amount
         if not repaid:
             missed_payments += 1
-        mortgages.append({
-            "amount": random.randint(100000, 1000000),
-            "due_date": due_date.strftime('%Y-%m-%d'),
-            "repaid": repaid
-        })
-
-    # Bills
-    bills = []
+        mortgages.append({"amount": amount, "repaid": repaid})
+        
     for _ in range(20):
-        bills.append({
-            "provider": random.choice(["Electricity", "Water", "Internet", random.choice(ott_platforms)]),
-            "amount": random.randint(100, 999),
-            "due_date": (datetime.now() + timedelta(days=random.randint(-30, 30))).strftime('%Y-%m-%d'),
-            "paid": random.choice([True, False])
-        })
-
-    # EMIs
-    emis = []
+        paid = random.choice([True, False])
+        amount = random.randint(100, 999)
+        total_obligations += amount
+        if not paid:
+            missed_payments += 1
+        bills.append({"provider": random.choice(ott_platforms), "amount": amount, "paid": paid})
+        
     for _ in range(20):
-        emis.append({
-            "item": random.choice(emi_items),
-            "amount": random.randint(500, 5000),
-            "due_date": (datetime.now() + timedelta(days=random.randint(-30, 30))).strftime('%Y-%m-%d'),
-            "paid": random.choice([True, False])
-        })
-
-    # Calculations
-    late_payment_risk = min(10, missed_payments)
-    app_score = 700 - (100 if late_payment_risk > 5 else 0) - (missed_payments * 10)
+        paid = random.choice([True, False])
+        amount = random.randint(500, 5000)
+        total_obligations += amount
+        if not paid:
+            missed_payments += 1
+        emis.append({"item": random.choice(emi_items), "amount": amount, "paid": paid})
+    
+    debt_ratio = total_obligations / max(1, credit_card["limit"])  # Prevent division by zero
+    late_payment_score = max(0, 100 - (missed_payments / max(1, total_obligations) * 100))
+    app_score = max(300, 700 - int(missed_payments * 10))
     target_saving = random.randint(5000, 10000)
     profit = target_saving - total_spent
-
-    # User Data
-    user_data = {
+    financial_health = max(0, min(100, (app_score / 7) - (late_payment_score / 5) - (debt_ratio * 30) + (profit / 1000) * 5))
+    
+    users.append({
         "name": full_name,
         "email": email,
         "phone": phone,
@@ -107,13 +86,12 @@ for i in range(100):
         "mortgages": mortgages,
         "bills": bills,
         "emis": emis,
-        "late_payment_risk": late_payment_risk,
-        "app_score": max(300, app_score),
+        "late_payment_score": late_payment_score,
+        "app_score": app_score,
         "target_saving": target_saving,
-        "profit": profit
-    }
-    
-    users.append(user_data)
+        "profit": profit,
+        "financial_health": financial_health
+    })
 
 @app.route('/users', methods=['GET'])
 def get_users():
@@ -122,31 +100,17 @@ def get_users():
 @app.route('/summary', methods=['GET'])
 def get_summary():
     card_number = request.args.get("card")
-
     if not card_number:
         return jsonify({"error": "Card number is required"}), 400
-
     user = next((u for u in users if u["credit_card"]["number"] == card_number), None)
-
     if not user:
         return jsonify({"error": "User not found"}), 404
-
-    mortgages_due = [m["amount"] for m in user["mortgages"] if not m["repaid"]]
-    bills_due = [b["amount"] for b in user["bills"] if not b["paid"]]
-    emis_due = [e["amount"] for e in user["emis"] if not e["paid"]]
-
     return jsonify({
         "card_number": card_number,
         "card_type": user["credit_card"]["type"],
-        "total_mortgages_due": sum(mortgages_due),
-        "count_mortgages_due": len(mortgages_due),
-        "total_bills_due": sum(bills_due),
-        "count_bills_due": len(bills_due),
-        "total_emis_due": sum(emis_due),
-        "count_emis_due": len(emis_due),
         "app_score": user["app_score"],
-        "late_payment_risk": user["late_payment_risk"],
-        "financial_health_percentage": round(user["app_score"] / 10, 2)  # Example Fix
+        "late_payment_score": user["late_payment_score"],
+        "financial_health": user["financial_health"]
     })
 
 if __name__ == '__main__':
