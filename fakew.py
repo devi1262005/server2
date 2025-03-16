@@ -115,6 +115,10 @@ for i in range(100):
     
     users.append(user_data)
 
+@app.route('/users', methods=['GET'])
+def get_users():
+    return jsonify(users)
+
 @app.route('/summary', methods=['GET'])
 def get_summary():
     credit_card_number = request.args.get("credit_card")
@@ -127,30 +131,15 @@ def get_summary():
     if not user:
         return jsonify({"error": "User not found"}), 404
 
-    mortgages_due = [m["amount"] for m in user["mortgages"] if not m["repaid"]]
-    bills_due = [b["amount"] for b in user["bills"] if not b["paid"]]
-    emis_due = [e["amount"] for e in user["emis"] if not e["paid"]]
-
-    total_due = sum(mortgages_due) + sum(bills_due) + sum(emis_due)
-    balance = user["credit_card"]["balance"]
-    
-    # Debt ratio (how much is owed vs. available)
-    debt_ratio = total_due / (balance + 1)  # +1 to avoid division by zero
-
-    # Financial Health Calculation
-    financial_health = max(0, min(100, (user["app_score"] / 7) - (user["late_payment_risk"] * 5) - (debt_ratio * 30) + (user["profit"] / 1000) * 5))
+    total_mortgages_due = sum(m["amount"] for m in user["mortgages"] if not m["repaid"])
+    total_bills_due = sum(b["amount"] for b in user["bills"] if not b["paid"])
+    total_emis_due = sum(e["amount"] for e in user["emis"] if not e["paid"])
 
     return jsonify({
         "credit_card": credit_card_number,
-        "total_mortgages_due": sum(mortgages_due),
-        "count_mortgages_due": len(mortgages_due),
-        "total_bills_due": sum(bills_due),
-        "count_bills_due": len(bills_due),
-        "total_emis_due": sum(emis_due),
-        "count_emis_due": len(emis_due),
-        "app_score": user["app_score"],
-        "late_payment_risk": user["late_payment_risk"],
-        "financial_health_percentage": round(financial_health, 2)
+        "total_mortgages_due": total_mortgages_due,
+        "total_bills_due": total_bills_due,
+        "total_emis_due": total_emis_due
     })
 
 if __name__ == '__main__':
