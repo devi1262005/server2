@@ -72,7 +72,7 @@ for i in range(100):
         "total_spent": total_spent
     })
 
-@app.route('/summary', methods=['GET'])
+@app.route('/overivew', methods=['GET'])
 def get_summary():
     card_number = request.args.get("card")
 
