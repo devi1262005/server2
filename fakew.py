@@ -121,26 +121,35 @@ def get_users():
 
 @app.route('/summary', methods=['GET'])
 def get_summary():
-    credit_card_number = request.args.get("credit_card")
+    card_number = request.args.get("card")
 
-    if not credit_card_number:
-        return jsonify({"error": "Credit card number is required"}), 400
+    if not card_number:
+        return jsonify({"error": "Card number is required"}), 400
 
-    user = next((u for u in users if u["credit_card"]["number"] == credit_card_number), None)
-    
+    user = next((u for u in users if u["card"]["number"] == card_number), None)
+
     if not user:
         return jsonify({"error": "User not found"}), 404
 
-    total_mortgages_due = sum(m["amount"] for m in user["mortgages"] if not m["repaid"])
-    total_bills_due = sum(b["amount"] for b in user["bills"] if not b["paid"])
-    total_emis_due = sum(e["amount"] for e in user["emis"] if not e["paid"])
+    mortgages_due = [m["amount"] for m in user["mortgages"] if not m["repaid"]]
+    bills_due = [b["amount"] for b in user["bills"] if not b["paid"]]
+    emis_due = [e["amount"] for e in user["emis"] if not e["paid"]]
 
     return jsonify({
-        "credit_card": credit_card_number,
-        "total_mortgages_due": total_mortgages_due,
-        "total_bills_due": total_bills_due,
-        "total_emis_due": total_emis_due
+        "card_number": card_number,
+        "card_type": user["card"]["type"],
+        "bank": user["card"]["bank"],
+        "total_mortgages_due": sum(mortgages_due),
+        "count_mortgages_due": len(mortgages_due),
+        "total_bills_due": sum(bills_due),
+        "count_bills_due": len(bills_due),
+        "total_emis_due": sum(emis_due),
+        "count_emis_due": len(emis_due),
+        "app_score": user["app_score"],
+        "late_payment_risk": user["late_payment_risk"],
+        "financial_health_percentage": round(user["financial_health"], 2)
     })
+
 
 if __name__ == '__main__':
     app.run(debug=True)
