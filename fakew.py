@@ -173,38 +173,55 @@ def get_summary():
         "financial_health_percentage": round(financial_health_percentage, 2)
     })
 
-
+chat_sessions = {}
 
 @app.route('/ai_negotiator', methods=['POST'])
 def ai_negotiator():
     data = request.json
 
-    if not data or "conversation" not in data or "command" not in data:
-        return jsonify({"error": "Conversation and command are required"}), 400
+    if not data or "command" not in data:
+        return jsonify({"error": "Command is required"}), 400
 
+    user_id = data.get("user_id", "default")  # Optional user tracking
     command = data["command"].lower()
-    conversation = data["conversation"]
 
     if command == "start":
-        return jsonify({"message": "AI Negotiator is now active. Begin your negotiation."})
+        chat_sessions[user_id] = {"messages": []}  # Reset session
+        return jsonify({"message": "Begin negotiation."})
 
     if command == "end":
-        summary_prompt = f"Summarize this negotiation in 3 key points and give a negotiation score (out of 100): {conversation}"
+        if user_id not in chat_sessions or not chat_sessions[user_id]["messages"]:
+            return jsonify({"message": "No negotiation history found."})
+
+        conversation = "\n".join(chat_sessions[user_id]["messages"])
+        summary_prompt = f"Summarize this negotiation in 3 key points and evaluate the user's negotiation strategy with a score out of 100: {conversation}"
+        
         response = requests.post(HF_API_URL, headers=HF_HEADERS, json={"inputs": summary_prompt})
         summary = response.json()
-        
         summary_text = summary[0].get("generated_text", "Summary unavailable.") if isinstance(summary, list) else "Summary unavailable."
+
+        del chat_sessions[user_id]  # Clear session after summarization
 
         return jsonify({
             "message": "Negotiation ended.",
             "summary": summary_text
         })
 
-    # Generate suggestions for the ongoing conversation
-    prompt = f"Suggest negotiation strategies for this conversation with estimated success percentages: {conversation}"
+    if "conversation" not in data:
+        return jsonify({"error": "Conversation is required for negotiation"}), 400
+
+    conversation = data["conversation"]
+    chat_sessions.setdefault(user_id, {"messages": []})["messages"].append(conversation)
+    chat_count = len(chat_sessions[user_id]["messages"])
+
+    # Prompt AI for suggestions
+    prompt = f"Provide 5 negotiation strategies for this conversation with estimated success percentages: {conversation}"
     response = requests.post(HF_API_URL, headers=HF_HEADERS, json={"inputs": prompt})
     suggestions = response.json()
-    
     suggestions_text = suggestions[0].get("generated_text", "No suggestions available.") if isinstance(suggestions, list) else "No suggestions available."
+
+    # If 10+ messages, encourage ending
+    if chat_count >= 10:
+        suggestions_text += "\n\nConsider concluding this negotiation soon."
 
     return jsonify({"suggestions": suggestions_text})
