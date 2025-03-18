@@ -7,7 +7,7 @@ import os
 app = Flask(__name__)
 
 HF_API_URL = "https://api-inference.huggingface.co/models/meta-llama/Llama-3.3-70B-Instruct"
-HF_HEADERS = {"Authorization": "Bearer {HF_API_KEY}"}
+HF_HEADERS = {"Authorization": "Bearer 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"}
 
 first_names = ["Amit", "Priya", "Rahul", "Sneha", "Vikram", "Ananya", "Arjun", "Deepika", "Kunal", "Pooja"]
 last_names = ["Sharma", "Verma", "Patel", "Nair", "Reddy", "Singh", "Gupta", "Das", "Iyer", "Chopra"]
