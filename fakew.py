@@ -192,12 +192,19 @@ def ai_negotiator():
         summary_prompt = f"Summarize this negotiation in 3 key points and give a negotiation score (out of 100): {conversation}"
         response = requests.post(HF_API_URL, headers=HF_HEADERS, json={"inputs": summary_prompt})
         summary = response.json()
+        
+        summary_text = summary[0].get("generated_text", "Summary unavailable.") if isinstance(summary, list) else "Summary unavailable."
 
-        return jsonify({"message": "Negotiation ended.", "summary": summary.get("generated_text", "Summary unavailable.")})
+        return jsonify({
+            "message": "Negotiation ended.",
+            "summary": summary_text
+        })
 
-    prompt = f"Suggest negotiation strategies for this conversation with success percentages: {conversation}"
+    # Generate suggestions for the ongoing conversation
+    prompt = f"Suggest negotiation strategies for this conversation with estimated success percentages: {conversation}"
     response = requests.post(HF_API_URL, headers=HF_HEADERS, json={"inputs": prompt})
     suggestions = response.json()
+    
+    suggestions_text = suggestions[0].get("generated_text", "No suggestions available.") if isinstance(suggestions, list) else "No suggestions available."
 
-    return jsonify({"suggestions": suggestions.get("generated_text", "No suggestions available.")})
-
+    return jsonify({"suggestions": suggestions_text})
