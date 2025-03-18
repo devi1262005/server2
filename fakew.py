@@ -2,8 +2,12 @@ from flask import Flask, jsonify, request
 import random
 import hashlib
 from datetime import datetime, timedelta
-
+import requests
+import os
 app = Flask(__name__)
+
+HF_API_URL = "https://api-inference.huggingface.co/models/meta-llama/Llama-3.3-70B-Instruct"
+HF_HEADERS = {"Authorization": "Bearer {HF_API_KEY}"}
 
 first_names = ["Amit", "Priya", "Rahul", "Sneha", "Vikram", "Ananya", "Arjun", "Deepika", "Kunal", "Pooja"]
 last_names = ["Sharma", "Verma", "Patel", "Nair", "Reddy", "Singh", "Gupta", "Das", "Iyer", "Chopra"]
@@ -168,3 +172,32 @@ def get_summary():
         "late_payment_risk": round(late_payment_risk, 2),
         "financial_health_percentage": round(financial_health_percentage, 2)
     })
+
+
+
+@app.route('/ai_negotiator', methods=['POST'])
+def ai_negotiator():
+    data = request.json
+
+    if not data or "conversation" not in data or "command" not in data:
+        return jsonify({"error": "Conversation and command are required"}), 400
+
+    command = data["command"].lower()
+    conversation = data["conversation"]
+
+    if command == "start":
+        return jsonify({"message": "AI Negotiator is now active. Begin your negotiation."})
+
+    if command == "end":
+        summary_prompt = f"Summarize this negotiation in 3 key points and give a negotiation score (out of 100): {conversation}"
+        response = requests.post(HF_API_URL, headers=HF_HEADERS, json={"inputs": summary_prompt})
+        summary = response.json()
+
+        return jsonify({"message": "Negotiation ended.", "summary": summary.get("generated_text", "Summary unavailable.")})
+
+    prompt = f"Suggest negotiation strategies for this conversation with success percentages: {conversation}"
+    response = requests.post(HF_API_URL, headers=HF_HEADERS, json={"inputs": prompt})
+    suggestions = response.json()
+
+    return jsonify({"suggestions": suggestions.get("generated_text", "No suggestions available.")})
+
