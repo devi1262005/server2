@@ -175,21 +175,30 @@ def get_summary():
 
 chat_sessions = {}
 
+from flask import Flask, request, jsonify
+import requests
+
+app = Flask(__name__)
+
+HF_API_URL = "YOUR_HUGGINGFACE_API_URL"
+HF_HEADERS = {"Authorization": "Bearer YOUR_HF_TOKEN"}
+
+chat_sessions = {}  # Tracks ongoing conversations per user
+
+
 @app.route('/ai_negotiator', methods=['POST'])
 def ai_negotiator():
     data = request.json
 
-    if not data or "command" not in data:
-        return jsonify({"error": "Command is required"}), 400
+    user_id = data.get("user_id", "default")  # Default ID for tracking
 
-    user_id = data.get("user_id", "default")  # Optional user tracking
-    command = data["command"].lower()
-
-    if command == "start":
+    # **START COMMAND**
+    if data.get("command", "").lower() == "start":
         chat_sessions[user_id] = {"messages": []}  # Reset session
         return jsonify({"message": "Begin negotiation."})
 
-    if command == "end":
+    # **END COMMAND**
+    if data.get("command", "").lower() == "end":
         if user_id not in chat_sessions or not chat_sessions[user_id]["messages"]:
             return jsonify({"message": "No negotiation history found."})
 
@@ -207,14 +216,15 @@ def ai_negotiator():
             "summary": summary_text
         })
 
+    # **REGULAR USER MESSAGE**
     if "conversation" not in data:
-        return jsonify({"error": "Conversation is required for negotiation"}), 400
+        return jsonify({"error": "Conversation is required"}), 400
 
     conversation = data["conversation"]
     chat_sessions.setdefault(user_id, {"messages": []})["messages"].append(conversation)
     chat_count = len(chat_sessions[user_id]["messages"])
 
-    # Prompt AI for suggestions
+    # AI Suggests Strategies
     prompt = f"Provide 5 negotiation strategies for this conversation with estimated success percentages: {conversation}"
     response = requests.post(HF_API_URL, headers=HF_HEADERS, json={"inputs": prompt})
     suggestions = response.json()
