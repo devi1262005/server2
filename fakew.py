@@ -173,16 +173,6 @@ def get_summary():
         "financial_health_percentage": round(financial_health_percentage, 2)
     })
 
-chat_sessions = {}
-
-from flask import Flask, request, jsonify
-import requests
-
-app = Flask(__name__)
-
-HF_API_URL = "YOUR_HUGGINGFACE_API_URL"
-HF_HEADERS = {"Authorization": "Bearer YOUR_HF_TOKEN"}
-
 chat_sessions = {}  # Tracks ongoing conversations per user
 
 
