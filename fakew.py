@@ -6,9 +6,6 @@ import requests
 import os
 app = Flask(__name__)
 
-HF_API_URL = "https://api-inference.huggingface.co/models/meta-llama/Llama-3.3-70B-Instruct"
-HF_HEADERS = {"Authorization": "Bearer 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"}
-
 first_names = ["Amit", "Priya", "Rahul", "Sneha", "Vikram", "Ananya", "Arjun", "Deepika", "Kunal", "Pooja"]
 last_names = ["Sharma", "Verma", "Patel", "Nair", "Reddy", "Singh", "Gupta", "Das", "Iyer", "Chopra"]
 ott_platforms = ["Netflix", "Amazon Prime", "Disney+", "Hotstar", "Hulu", "Apple TV+"]
@@ -172,56 +169,3 @@ def get_summary():
         "late_payment_risk": round(late_payment_risk, 2),
         "financial_health_percentage": round(financial_health_percentage, 2)
     })
-
-chat_sessions = {}  # Tracks ongoing conversations per user
-
-
-@app.route('/ai_negotiator', methods=['POST'])
-def ai_negotiator():
-    data = request.json
-
-    user_id = data.get("user_id", "default")  # Default ID for tracking
-
-    # **START COMMAND**
-    if data.get("command", "").lower() == "start":
-        chat_sessions[user_id] = {"messages": []}  # Reset session
-        return jsonify({"message": "Begin negotiation."})
-
-    # **END COMMAND**
-    if data.get("command", "").lower() == "end":
-        if user_id not in chat_sessions or not chat_sessions[user_id]["messages"]:
-            return jsonify({"message": "No negotiation history found."})
-
-        conversation = "\n".join(chat_sessions[user_id]["messages"])
-        summary_prompt = f"Summarize this negotiation in 3 key points and evaluate the user's negotiation strategy with a score out of 100: {conversation}"
-        
-        response = requests.post(HF_API_URL, headers=HF_HEADERS, json={"inputs": summary_prompt})
-        summary = response.json()
-        summary_text = summary[0].get("generated_text", "Summary unavailable.") if isinstance(summary, list) else "Summary unavailable."
-
-        del chat_sessions[user_id]  # Clear session after summarization
-
-        return jsonify({
-            "message": "Negotiation ended.",
-            "summary": summary_text
-        })
-
-    # **REGULAR USER MESSAGE**
-    if "conversation" not in data:
-        return jsonify({"error": "Conversation is required"}), 400
-
-    conversation = data["conversation"]
-    chat_sessions.setdefault(user_id, {"messages": []})["messages"].append(conversation)
-    chat_count = len(chat_sessions[user_id]["messages"])
-
-    # AI Suggests Strategies
-    prompt = f"Provide 5 negotiation strategies for this conversation with estimated success percentages: {conversation}"
-    response = requests.post(HF_API_URL, headers=HF_HEADERS, json={"inputs": prompt})
-    suggestions = response.json()
-    suggestions_text = suggestions[0].get("generated_text", "No suggestions available.") if isinstance(suggestions, list) else "No suggestions available."
-
-    # If 10+ messages, encourage ending
-    if chat_count >= 10:
-        suggestions_text += "\n\nConsider concluding this negotiation soon."
-
-    return jsonify({"suggestions": suggestions_text})
